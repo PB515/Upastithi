@@ -119,9 +119,15 @@ function assert(cond: boolean, msg: string): void {
 async function selftest(): Promise<void> {
   loadEnv();
   console.log(c.dim(`harness DB: ${redact(databaseUrl())}`));
-  const probe = 'example_widget'; // created by migration 0001
+  const probe = 'verify_harness_probe';
   const client = await connect();
   try {
+    // Self-contained: creates and drops its own throwaway table, rather than
+    // depending on migration 0001's example_widget — every real site is
+    // instructed to delete that migration, so the harness can't assume it
+    // exists (found when a site actually did delete it).
+    await client.query(`create table if not exists ${probe} (id serial primary key, name text)`);
+
     const before = await snapshot(client, [probe]);
     await seed(client, probe, [
       { name: 'verify-harness-probe-1' },
@@ -138,6 +144,7 @@ async function selftest(): Promise<void> {
       c.green(`✓ harness ok: snapshot ${before[probe]} → seed +2 = ${seeded[probe]} → teardown → ${after[probe]} (clean)`)
     );
   } finally {
+    await client.query(`drop table if exists ${probe}`);
     await client.end();
   }
 }

@@ -34,6 +34,77 @@ export type Database = {
   }
   public: {
     Tables: {
+      attendees: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          name: string
+          phone: string | null
+          present: boolean
+          remarks: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          name: string
+          phone?: string | null
+          present?: boolean
+          remarks?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          present?: boolean
+          remarks?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendees_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_log: {
+        Row: {
+          action: string
+          actor_id: string
+          created_at: string
+          entity: string
+          entity_id: string | null
+          id: string
+          meta: Json
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          created_at?: string
+          entity: string
+          entity_id?: string | null
+          id?: string
+          meta?: Json
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          created_at?: string
+          entity?: string
+          entity_id?: string | null
+          id?: string
+          meta?: Json
+        }
+        Relationships: []
+      }
       db_meta: {
         Row: {
           applied_at: string
@@ -58,21 +129,104 @@ export type Database = {
         }
         Relationships: []
       }
-      example_widget: {
+      event_access_tokens: {
+        Row: {
+          created_at: string
+          created_by: string
+          event_id: string
+          expires_at: string
+          extended_at: string | null
+          extended_by: string | null
+          id: string
+          label: string | null
+          revoked_at: string | null
+          short_code_hash: string
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          event_id: string
+          expires_at: string
+          extended_at?: string | null
+          extended_by?: string | null
+          id?: string
+          label?: string | null
+          revoked_at?: string | null
+          short_code_hash: string
+          token_hash: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          event_id?: string
+          expires_at?: string
+          extended_at?: string | null
+          extended_by?: string | null
+          id?: string
+          label?: string | null
+          revoked_at?: string | null
+          short_code_hash?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_access_tokens_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          created_at: string
+          created_by: string
+          event_date: string
+          id: string
+          location: string | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          event_date: string
+          id?: string
+          location?: string | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          event_date?: string
+          id?: string
+          location?: string | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      staff: {
         Row: {
           created_at: string
           id: string
-          name: string
+          role: string
+          user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
-          name: string
+          role: string
+          user_id: string
         }
         Update: {
           created_at?: string
           id?: string
-          name?: string
+          role?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -81,6 +235,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      has_role: { Args: { required_role: string }; Returns: boolean }
       keepalive: { Args: never; Returns: string }
     }
     Enums: {
