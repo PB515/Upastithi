@@ -49,25 +49,39 @@ export async function setPresent(token: string, attendeeId: string, present: boo
   revalidatePath(`/e/${token}`);
 }
 
-export async function registerWalkIn(token: string, formData: FormData): Promise<void> {
+export interface WalkInPayload {
+  name: string;
+  phone?: string;
+  remarks?: string;
+}
+
+// Returns the created row's id (was void) — the offline queue's optimistic
+// entry needs to be reconciled with a real id once the write actually lands.
+export async function registerWalkIn(token: string, payload: WalkInPayload): Promise<{ id: string }> {
   const { eventId } = await verifyOrDeny(token);
 
-  const name = String(formData.get('name') ?? '').trim();
-  const phone = String(formData.get('phone') ?? '').trim();
-  const remarks = String(formData.get('remarks') ?? '').trim();
+  const name = payload.name.trim();
+  const phone = (payload.phone ?? '').trim();
+  const remarks = (payload.remarks ?? '').trim();
 
   if (!name) throw new Error('Name is required');
 
   const service = createServiceRoleClient();
-  const { error } = await service.from('attendees').insert({
-    event_id: eventId,
-    name,
-    phone: phone || null,
-    remarks: remarks || null,
-    present: true,
-  });
+  const { data, error } = await service
+    .from('attendees')
+    .insert({
+      event_id: eventId,
+      name,
+      phone: phone || null,
+      remarks: remarks || null,
+      present: true,
+    })
+    .select('id')
+    .single();
 
-  if (error) throw new Error('Could not register attendee');
+  if (error || !data) throw new Error('Could not register attendee');
 
   revalidatePath(`/e/${token}`);
+
+  return { id: data.id };
 }

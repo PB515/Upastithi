@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { EventsList, type EventWithCount } from '@/components/events-list';
@@ -35,11 +36,16 @@ export default async function ViewerPage() {
     <main className="flex-1 p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="font-display text-xl">Events</h1>
-        <form action={signOut}>
-          <button type="submit" className="text-sm underline">
-            Sign out
-          </button>
-        </form>
+        <div className="flex items-center gap-4">
+          <Link href="/viewer/reports" className="text-sm underline">
+            Reports
+          </Link>
+          <form action={signOut}>
+            <button type="submit" className="text-sm underline">
+              Sign out
+            </button>
+          </form>
+        </div>
       </div>
 
       {error ? (

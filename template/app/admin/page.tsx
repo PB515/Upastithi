@@ -39,6 +39,9 @@ export default async function AdminPage() {
       <div className="mb-4 flex items-center justify-between">
         <h1 className="font-display text-xl">Events</h1>
         <div className="flex items-center gap-4">
+          <Link href="/admin/reports" className="text-sm underline">
+            Reports
+          </Link>
           <Link href="/admin/staff" className="text-sm underline">
             Manage staff
           </Link>

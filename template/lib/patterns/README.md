@@ -10,6 +10,7 @@
 | `audit-log.ts` | A consequential write (status, money, role, deletion) must leave a who/what/when trail. |
 | `two-query-write.ts` | A write must return shaped/joined data, or must be idempotent (insert-then-select; check-then-insert). |
 | `has_role.sql` | An authed app needs role-based RLS — `using (has_role('staff'))` instead of repeating a subquery. |
+| `offline-queue.ts` | A write must succeed even through a dropped connection — optimistic UI + a local retry queue, not a spinner that just fails. |
 
 **Supabase clients** live one level up in `lib/supabase/` — the 4-client split:
 

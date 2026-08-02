@@ -1,7 +1,7 @@
 import { createServiceRoleClient } from '@/lib/supabase/service-role';
 import { verifyManagementAccess } from '@/lib/management-token';
 import { formatEventDate } from '@/lib/format-date';
-import { setPresent, registerWalkIn } from './actions';
+import { ManagementClient } from './management-client';
 
 export default async function ManagementPage({
   params,
@@ -26,7 +26,7 @@ export default async function ManagementPage({
     service.from('events').select('name, event_date').eq('id', access.eventId).single(),
     service
       .from('attendees')
-      .select('*')
+      .select('id, name, phone, present, remarks')
       .eq('event_id', access.eventId)
       .order('name', { ascending: true }),
   ]);
@@ -38,68 +38,7 @@ export default async function ManagementPage({
         <p className="mb-6 text-sm text-muted">{formatEventDate(event.event_date)}</p>
       )}
 
-      <section className="mb-6">
-        <h2 className="mb-2 text-sm font-medium text-muted">Attendees</h2>
-        {(attendees ?? []).length === 0 ? (
-          <p className="text-sm text-muted">No one registered yet. Add a walk-in below.</p>
-        ) : (
-          <ul className="divide-y divide-border rounded-[var(--radius)] border border-border">
-            {(attendees ?? []).map((a) => (
-              <li key={a.id} className="flex items-center justify-between gap-2 p-3">
-                <div>
-                  <div className="font-medium">{a.name}</div>
-                  {a.phone && <div className="text-sm text-muted">{a.phone}</div>}
-                </div>
-                {a.present ? (
-                  <form action={setPresent.bind(null, token, a.id, false)} className="flex items-center gap-2">
-                    <span className="text-sm text-green-700">Present</span>
-                    <button type="submit" className="text-sm underline">
-                      Undo
-                    </button>
-                  </form>
-                ) : (
-                  <form action={setPresent.bind(null, token, a.id, true)}>
-                    <button
-                      type="submit"
-                      className="rounded-[var(--radius)] bg-accent px-3 py-1.5 text-sm text-accent-foreground"
-                    >
-                      Mark present
-                    </button>
-                  </form>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section>
-        <h2 className="mb-2 text-sm font-medium text-muted">Register a walk-in</h2>
-        <form action={registerWalkIn.bind(null, token)} className="max-w-sm space-y-3">
-          <input
-            name="name"
-            placeholder="Name"
-            required
-            className="w-full rounded-[var(--radius)] border border-border px-3 py-2"
-          />
-          <input
-            name="phone"
-            placeholder="Phone (optional)"
-            className="w-full rounded-[var(--radius)] border border-border px-3 py-2"
-          />
-          <input
-            name="remarks"
-            placeholder="Remarks (optional)"
-            className="w-full rounded-[var(--radius)] border border-border px-3 py-2"
-          />
-          <button
-            type="submit"
-            className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm text-accent-foreground"
-          >
-            Register and mark present
-          </button>
-        </form>
-      </section>
+      <ManagementClient token={token} initialAttendees={attendees ?? []} />
     </main>
   );
 }
