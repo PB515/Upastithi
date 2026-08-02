@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { EventsList } from '@/components/events-list';
+import { EventsList, type EventWithCount } from '@/components/events-list';
 import { signOut } from '../login/actions';
 
 export default async function AdminPage() {
@@ -22,16 +22,26 @@ export default async function AdminPage() {
     redirect('/login?error=Not authorized for this account');
   }
 
-  const { data: events, error } = await supabase
+  const { data: rawEvents, error } = await supabase
     .from('events')
-    .select('*')
+    .select('*, attendees(count)')
     .order('event_date', { ascending: false });
+
+  // PostgREST's embedded-count shape: each row gets attendees: [{ count }].
+  // One query, no N+1 — flatten it into the plain field EventsList expects.
+  const events: EventWithCount[] = (rawEvents ?? []).map((e) => {
+    const { attendees, ...rest } = e as typeof e & { attendees: { count: number }[] };
+    return { ...rest, attendeeCount: attendees?.[0]?.count ?? 0 };
+  });
 
   return (
     <main className="flex-1 p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="font-display text-xl">Events</h1>
         <div className="flex items-center gap-4">
+          <Link href="/admin/staff" className="text-sm underline">
+            Manage staff
+          </Link>
           <Link
             href="/admin/events/new"
             className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm text-accent-foreground"
@@ -51,7 +61,7 @@ export default async function AdminPage() {
           Couldn&apos;t load events. Try reloading the page.
         </p>
       ) : (
-        <EventsList events={events ?? []} basePath="/admin/events" canCreate />
+        <EventsList events={events} basePath="/admin/events" canCreate />
       )}
     </main>
   );

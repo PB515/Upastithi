@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceRoleClient } from '@/lib/supabase/service-role';
+import { requireAdmin } from '@/lib/require-admin';
 import { writeAuditLog } from '@/lib/patterns/audit-log';
 import {
   generateLinkToken,
@@ -41,28 +42,6 @@ export async function updateEvent(eventId: string, draft: EventDraft): Promise<v
   revalidatePath('/viewer');
 }
 
-/**
- * Re-checked in every grant-management action below, not just relied on from
- * the page render — a Server Action is a direct RPC endpoint, so it gets its
- * own admin check, same defense-in-depth principle as the rest of this app.
- */
-async function assertAdmin(): Promise<{ userId: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
-
-  const { data: staffRow } = await supabase
-    .from('staff')
-    .select('role')
-    .eq('user_id', user.id)
-    .single();
-  if (staffRow?.role !== 'admin') throw new Error('Not authorized');
-
-  return { userId: user.id };
-}
-
 export interface GrantSummary {
   id: string;
   label: string | null;
@@ -74,10 +53,10 @@ export interface GrantSummary {
 /**
  * `event_access_tokens` has zero RLS policies for any client role, admin
  * included (data-model-security.md §5.6) — every read/write here goes
- * through the service-role client, gated by `assertAdmin()` first.
+ * through the service-role client, gated by `requireAdmin()` first.
  */
 export async function listGrants(eventId: string): Promise<GrantSummary[]> {
-  await assertAdmin();
+  await requireAdmin();
   const service = createServiceRoleClient();
 
   const { data, error } = await service
@@ -106,7 +85,7 @@ export interface GeneratedGrant {
 }
 
 export async function generateGrant(eventId: string, label?: string): Promise<GeneratedGrant> {
-  const { userId } = await assertAdmin();
+  const { userId } = await requireAdmin();
   const service = createServiceRoleClient();
 
   const { data: event } = await service
@@ -161,7 +140,7 @@ export async function generateGrant(eventId: string, label?: string): Promise<Ge
 }
 
 export async function revokeGrant(grantId: string): Promise<void> {
-  const { userId } = await assertAdmin();
+  const { userId } = await requireAdmin();
   const service = createServiceRoleClient();
 
   const { data: grant, error } = await service
@@ -185,7 +164,7 @@ export async function revokeGrant(grantId: string): Promise<void> {
 }
 
 export async function extendGrant(grantId: string): Promise<void> {
-  const { userId } = await assertAdmin();
+  const { userId } = await requireAdmin();
   const service = createServiceRoleClient();
 
   const newExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();

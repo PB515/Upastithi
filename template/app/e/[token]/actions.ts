@@ -3,28 +3,31 @@
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { createServiceRoleClient } from '@/lib/supabase/service-role';
-import { verifyManagementAccess } from '@/lib/management-token';
+import { verifyManagementAccess, looksLikeShortCode } from '@/lib/management-token';
 import { rateLimit, clientIp } from '@/lib/security';
 
 /**
- * Re-verifies the token on every call (data-model-security.md §5.4) — never
- * trusts that a prior page load was valid. Every write that follows scopes
- * itself to the returned, server-verified `eventId`, never a client-supplied
- * one.
+ * Re-verifies the credential (link token OR short code — see
+ * lib/management-token.ts) on every call (data-model-security.md §5.4) —
+ * never trusts that a prior page load was valid. Every write that follows
+ * scopes itself to the returned, server-verified `eventId`, never a
+ * client-supplied one.
  */
-async function verifyOrDeny(token: string): Promise<{ eventId: string }> {
-  const access = await verifyManagementAccess(token);
+async function verifyOrDeny(credential: string): Promise<{ eventId: string }> {
+  const access = await verifyManagementAccess(credential);
   if (access) return access;
 
-  // Track failed attempts (mostly a scanning-abuse signal here — the link
-  // token is 256 bits and isn't meaningfully brute-forceable regardless of
-  // rate; the short code's own limiter matters more and lands with that
-  // path, §5.8).
+  // Failed attempts are tracked in two separate buckets (§5.8): a generous
+  // one for link-shaped failures (256 bits isn't meaningfully
+  // brute-forceable regardless of rate — this is mostly a scanning-abuse
+  // signal) and a tight one for code-shaped failures (~40 bits, genuinely
+  // guessable online without any leak).
   const ip = clientIp(await headers());
-  rateLimit(`management-verify-fail:${ip}`, 20, 15 * 60_000);
+  const strict = looksLikeShortCode(credential);
+  rateLimit(`management-verify-fail:${strict ? 'code' : 'link'}:${ip}`, strict ? 5 : 20, 15 * 60_000);
 
-  // Same generic message for expired/revoked/malformed/never-existed —
-  // deliberately no oracle (§5.4).
+  // Same generic message for expired/revoked/malformed/never-existed, on
+  // either path — deliberately no oracle (§5.4).
   throw new Error('This link is no longer active');
 }
 

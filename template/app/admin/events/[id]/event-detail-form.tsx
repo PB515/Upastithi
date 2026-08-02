@@ -1,7 +1,7 @@
 'use client';
 
 import { ViewEditForm } from '@/lib/patterns/view-edit-form';
-import { formatEventDate } from '@/components/events-list';
+import { formatEventDate } from '@/lib/format-date';
 import { updateEvent, type EventDraft } from './actions';
 
 export function EventDetailForm({

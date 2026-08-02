@@ -32,6 +32,11 @@ export default async function EventDetailPage({
   if (!event) notFound();
 
   const grants = await listGrants(event.id);
+  const { data: attendees } = await supabase
+    .from('attendees')
+    .select('*')
+    .eq('event_id', event.id)
+    .order('name', { ascending: true });
 
   return (
     <main className="flex-1 p-6">
@@ -57,12 +62,56 @@ export default async function EventDetailPage({
         <GrantsPanel eventId={event.id} initialGrants={grants} />
       </div>
 
-      <div className="mt-6 max-w-sm">
-        <h2 className="mb-2 font-display text-lg">Attendees</h2>
-        <EmptyState
-          title="No attendees yet"
-          message="Share a Management access link above, then attendance marked through it will show up here."
-        />
+      <div className="mt-6 max-w-2xl">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="font-display text-lg">
+            Attendees{attendees && attendees.length > 0 ? ` (${attendees.length})` : ''}
+          </h2>
+          {attendees && attendees.length > 0 && (
+            <a
+              href={`/admin/events/${event.id}/export`}
+              className="rounded-[var(--radius)] border border-border px-3 py-1.5 text-sm"
+            >
+              Export CSV
+            </a>
+          )}
+        </div>
+
+        {!attendees || attendees.length === 0 ? (
+          <EmptyState
+            title="No attendees yet"
+            message="Share a Management access link above, then attendance marked through it will show up here."
+          />
+        ) : (
+          <div className="overflow-x-auto rounded-[var(--radius)] border border-border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-muted">
+                  <th className="p-3 font-medium">Name</th>
+                  <th className="p-3 font-medium">Phone</th>
+                  <th className="p-3 font-medium">Status</th>
+                  <th className="p-3 font-medium">Remarks</th>
+                </tr>
+              </thead>
+              <tbody>
+                {attendees.map((a) => (
+                  <tr key={a.id} className="border-b border-border last:border-0">
+                    <td className="p-3">{a.name}</td>
+                    <td className="p-3">{a.phone || 'Not set'}</td>
+                    <td className="p-3">
+                      {a.present ? (
+                        <span className="text-green-700">Present</span>
+                      ) : (
+                        <span className="text-muted">Absent</span>
+                      )}
+                    </td>
+                    <td className="p-3">{a.remarks || 'Not set'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </main>
   );

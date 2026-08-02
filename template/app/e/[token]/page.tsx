@@ -1,6 +1,6 @@
 import { createServiceRoleClient } from '@/lib/supabase/service-role';
 import { verifyManagementAccess } from '@/lib/management-token';
-import { formatEventDate } from '@/components/events-list';
+import { formatEventDate } from '@/lib/format-date';
 import { setPresent, registerWalkIn } from './actions';
 
 export default async function ManagementPage({

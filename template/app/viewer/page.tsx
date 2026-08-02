@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { EventsList } from '@/components/events-list';
+import { EventsList, type EventWithCount } from '@/components/events-list';
 import { signOut } from '../login/actions';
 
 export default async function ViewerPage() {
@@ -21,10 +21,15 @@ export default async function ViewerPage() {
     redirect('/login?error=Not authorized for this account');
   }
 
-  const { data: events, error } = await supabase
+  const { data: rawEvents, error } = await supabase
     .from('events')
-    .select('*')
+    .select('*, attendees(count)')
     .order('event_date', { ascending: false });
+
+  const events: EventWithCount[] = (rawEvents ?? []).map((e) => {
+    const { attendees, ...rest } = e as typeof e & { attendees: { count: number }[] };
+    return { ...rest, attendeeCount: attendees?.[0]?.count ?? 0 };
+  });
 
   return (
     <main className="flex-1 p-6">
@@ -42,7 +47,7 @@ export default async function ViewerPage() {
           Couldn&apos;t load events. Try reloading the page.
         </p>
       ) : (
-        <EventsList events={events ?? []} />
+        <EventsList events={events} />
       )}
     </main>
   );

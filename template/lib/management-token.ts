@@ -43,8 +43,6 @@ export function hashShortCode(code: string): string {
   return `${salt.toString('hex')}:${hash.toString('hex')}`;
 }
 
-/** Not wired to any route yet (the short-code entry page is deferred) —
- * kept here so the storage format and verification are designed together. */
 export function verifyShortCode(code: string, stored: string): boolean {
   const [saltHex, hashHex] = stored.split(':');
   if (!saltHex || !hashHex) return false;
@@ -54,25 +52,37 @@ export function verifyShortCode(code: string, stored: string): boolean {
   return candidate.length === expected.length && timingSafeEqual(candidate, expected);
 }
 
+/** Rough shape check used only to pick a rate-limit bucket (§5.8) — link
+ * tokens are 43 chars, short codes are exactly SHORT_CODE_LENGTH. Not used
+ * for anything security-load-bearing itself. */
+export function looksLikeShortCode(credential: string): boolean {
+  return credential.length <= 10;
+}
+
 export interface ManagementAccess {
   eventId: string;
   grantId: string;
 }
 
 /**
- * The §5.4 link-path check: hash the raw token, look up a matching,
- * non-revoked, non-expired grant via the service-role client (this table
- * has zero RLS policies for any client role — service-role is the only
- * path in, by design). Returns null on ANY failure reason (never existed,
- * expired, revoked) — deliberately no oracle distinguishing why.
+ * Checks a credential against BOTH paths from §5.4:
+ *  - LINK PATH: hash the raw token, one indexed lookup. Tried first — it's
+ *    the common case and it's cheap.
+ *  - SHORT-CODE PATH: only reached if the link lookup misses. No index is
+ *    possible for a slow KDF, so this loops every currently-active grant
+ *    and scrypt-compares (§5.8's documented scale assumption: cheap only
+ *    because this app's real grant volume is small).
+ * Returns null on ANY failure reason (never existed, expired, revoked,
+ * wrong path entirely) — deliberately no oracle distinguishing why, on
+ * either path.
  */
-export async function verifyManagementAccess(rawToken: string): Promise<ManagementAccess | null> {
-  if (!rawToken) return null;
+export async function verifyManagementAccess(credential: string): Promise<ManagementAccess | null> {
+  if (!credential) return null;
 
-  const tokenHash = hashLinkToken(rawToken);
   const supabase = createServiceRoleClient();
 
-  const { data } = await supabase
+  const tokenHash = hashLinkToken(credential);
+  const { data: byToken } = await supabase
     .from('event_access_tokens')
     .select('id, event_id')
     .eq('token_hash', tokenHash)
@@ -80,6 +90,19 @@ export async function verifyManagementAccess(rawToken: string): Promise<Manageme
     .gt('expires_at', new Date().toISOString())
     .maybeSingle();
 
-  if (!data) return null;
-  return { eventId: data.event_id, grantId: data.id };
+  if (byToken) return { eventId: byToken.event_id, grantId: byToken.id };
+
+  const { data: candidates } = await supabase
+    .from('event_access_tokens')
+    .select('id, event_id, short_code_hash')
+    .is('revoked_at', null)
+    .gt('expires_at', new Date().toISOString());
+
+  for (const candidate of candidates ?? []) {
+    if (verifyShortCode(credential, candidate.short_code_hash)) {
+      return { eventId: candidate.event_id, grantId: candidate.id };
+    }
+  }
+
+  return null;
 }
