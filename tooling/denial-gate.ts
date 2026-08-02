@@ -1,9 +1,17 @@
 #!/usr/bin/env tsx
 /**
- * denial-gate — proves the cross-ROLE items of the denial gate specified in
- * docs/data-model-security.md §8 (Admin / Viewer / anon). The cross-EVENT
- * items later in that checklist (Management token scoping) can't be proven
- * yet — no /e/[token] route exists — they get proven when that feature ships.
+ * denial-gate — proves the denial gate specified in
+ * docs/data-model-security.md §8: the cross-ROLE items (Admin / Viewer /
+ * anon) AND, now that /e/[token] exists, the cross-EVENT items (Management
+ * access-token scoping, multi-grant isolation).
+ *
+ * The cross-event checks replicate the exact query shape the real
+ * Server Actions use (service-role client + explicit `.eq('event_id',
+ * verifiedEventId)` on every write) rather than importing the Next.js app
+ * code directly — that code isn't runnable outside the Next.js bundle. What
+ * actually enforces cross-event isolation here is that query discipline,
+ * not an RLS policy (event_access_tokens has none, by design) — this proves
+ * the discipline holds against the real schema, not just in the doc.
  *
  * DB-backed, so it lives here rather than in template/tests (vitest there is
  * scoped to pure lib/logic unit tests — see vitest.config.ts's own comment;
@@ -14,6 +22,7 @@
  * Usage: npx tsx tooling/denial-gate.ts
  */
 
+import { randomBytes, createHash } from 'node:crypto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { connect, serviceClient } from './verify';
 
@@ -73,6 +82,8 @@ async function main() {
   let adminUserId: string | undefined;
   let viewerUserId: string | undefined;
   let seededEventId: string | undefined;
+  let secondEventId: string | undefined;
+  const grantIds: string[] = []; // informational only — cascade-deleted with their event
 
   try {
     const { data: adminUser, error: adminErr } = await service.auth.admin.createUser({
@@ -214,9 +225,161 @@ async function main() {
       const { data, error } = await viewerClient.from('audit_log').select('*');
       check('select audit_log → denied (confirmed deny)', isDenied(error, data));
     }
+
+    // ---------- cross-event (Management access-token scoping) ----------
+    console.log('\ncross-event (Management access-token scoping):');
+
+    if (seededEventId) {
+      const { data: eventB } = await service
+        .from('events')
+        .insert({ name: 'Denial gate test event B', event_date: '2026-01-02', created_by: adminUserId })
+        .select('id')
+        .single();
+      secondEventId = eventB?.id;
+
+      const { data: attendeeA } = await service
+        .from('attendees')
+        .insert({ event_id: seededEventId, name: 'Event A attendee' })
+        .select('id')
+        .single();
+      const attendeeAId = attendeeA?.id;
+
+      let attendeeBId: string | undefined;
+      if (secondEventId) {
+        const { data: attendeeB } = await service
+          .from('attendees')
+          .insert({ event_id: secondEventId, name: 'Event B attendee' })
+          .select('id')
+          .single();
+        attendeeBId = attendeeB?.id;
+      }
+
+      const makeTokenPair = () => {
+        const rawToken = randomBytes(32).toString('base64url');
+        return { tokenHash: createHash('sha256').update(rawToken).digest('hex') };
+      };
+      const grantA1 = makeTokenPair();
+      const grantA2 = makeTokenPair();
+      const farFuture = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      const past = new Date(Date.now() - 60_000).toISOString();
+
+      const { data: insertedA1 } = await service
+        .from('event_access_tokens')
+        .insert({
+          event_id: seededEventId,
+          token_hash: grantA1.tokenHash,
+          short_code_hash: 'placeholder:a1',
+          created_by: adminUserId,
+          expires_at: farFuture,
+          label: 'Grant A1',
+        })
+        .select('id')
+        .single();
+      grantIds.push(...(insertedA1 ? [insertedA1.id] : []));
+
+      await service.from('event_access_tokens').insert({
+        event_id: seededEventId,
+        token_hash: grantA2.tokenHash,
+        short_code_hash: 'placeholder:a2',
+        created_by: adminUserId,
+        expires_at: farFuture,
+        label: 'Grant A2',
+      });
+
+      // Grant A1 resolves to Event A, not Event B.
+      {
+        const { data } = await service
+          .from('event_access_tokens')
+          .select('event_id')
+          .eq('token_hash', grantA1.tokenHash)
+          .is('revoked_at', null)
+          .gt('expires_at', new Date().toISOString())
+          .maybeSingle();
+        check('Grant A1 resolves to Event A', data?.event_id === seededEventId);
+      }
+
+      // Grant A1's verified event_id must not reach Event B's attendee —
+      // this is the exact query shape markPresent() uses in production.
+      if (attendeeBId) {
+        const { data, error } = await service
+          .from('attendees')
+          .update({ present: true })
+          .eq('id', attendeeBId)
+          .eq('event_id', seededEventId)
+          .select();
+        check('Grant A1 cannot mark an Event B attendee present (0 rows)', isDenied(error, data));
+      }
+
+      // Contrast: Grant A1 CAN mark its own event's attendee.
+      if (attendeeAId) {
+        const { data, error } = await service
+          .from('attendees')
+          .update({ present: true })
+          .eq('id', attendeeAId)
+          .eq('event_id', seededEventId)
+          .select();
+        check("Grant A1 CAN mark its own event's attendee present", !error && data?.length === 1, error?.message);
+      }
+
+      // Expired token → resolves to nothing.
+      {
+        const expired = makeTokenPair();
+        const { data: insertedExpired } = await service
+          .from('event_access_tokens')
+          .insert({
+            event_id: seededEventId,
+            token_hash: expired.tokenHash,
+            short_code_hash: 'placeholder:expired',
+            created_by: adminUserId,
+            expires_at: past,
+            label: 'Expired grant',
+          })
+          .select('id')
+          .single();
+        grantIds.push(...(insertedExpired ? [insertedExpired.id] : []));
+
+        const { data } = await service
+          .from('event_access_tokens')
+          .select('event_id')
+          .eq('token_hash', expired.tokenHash)
+          .is('revoked_at', null)
+          .gt('expires_at', new Date().toISOString())
+          .maybeSingle();
+        check('Expired token resolves to nothing', data === null);
+      }
+
+      // Revoke Grant A1 → resolves to nothing; Grant A2 (same event, multi-
+      // grant isolation §5.2) stays active and untouched.
+      if (insertedA1) {
+        await service
+          .from('event_access_tokens')
+          .update({ revoked_at: new Date().toISOString() })
+          .eq('id', insertedA1.id);
+
+        const { data: a1After } = await service
+          .from('event_access_tokens')
+          .select('event_id')
+          .eq('token_hash', grantA1.tokenHash)
+          .is('revoked_at', null)
+          .gt('expires_at', new Date().toISOString())
+          .maybeSingle();
+        check('Revoked Grant A1 resolves to nothing', a1After === null);
+
+        const { data: a2After } = await service
+          .from('event_access_tokens')
+          .select('event_id')
+          .eq('token_hash', grantA2.tokenHash)
+          .is('revoked_at', null)
+          .gt('expires_at', new Date().toISOString())
+          .maybeSingle();
+        check('Grant A2 (same event) still active after Grant A1 revoked', a2After?.event_id === seededEventId);
+      }
+    }
   } finally {
     // Teardown — leave the DB clean. Deleting the auth user cascades to its
-    // staff row (staff.user_id references auth.users(id) on delete cascade).
+    // staff row; deleting an event cascades to its attendees and access
+    // grants (all FK'd with on delete cascade).
+    if (secondEventId) await pg.query('delete from events where id = $1', [secondEventId]);
     if (seededEventId) await pg.query('delete from events where id = $1', [seededEventId]);
     if (adminUserId) await service.auth.admin.deleteUser(adminUserId);
     if (viewerUserId) await service.auth.admin.deleteUser(viewerUserId);

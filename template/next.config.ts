@@ -6,6 +6,17 @@ import type { NextConfig } from "next";
 // `__dirname` is available because the config is evaluated as CommonJS.
 const nextConfig: NextConfig = {
   turbopack: { root: __dirname },
+  // The Management access token lives in the URL path (/e/[token]) — never
+  // let it leak via the Referer header to any third-party resource loaded
+  // on that page (data-model-security.md §5.8).
+  async headers() {
+    return [
+      {
+        source: '/e/:path*',
+        headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
