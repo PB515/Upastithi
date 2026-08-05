@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { GrantSummary, GeneratedGrant } from './actions';
-import { generateGrant, revokeGrant, extendGrant } from './actions';
+import { generateGrant, revokeGrant, extendGrant, regenerateGrant } from './actions';
 
 function grantStatus(grant: GrantSummary): 'active' | 'expired' | 'revoked' {
   if (grant.revokedAt) return 'revoked';
@@ -67,6 +67,19 @@ export function GrantsPanel({
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Could not extend grant');
+      }
+    });
+  }
+
+  function handleRegenerate(grantId: string) {
+    setError(null);
+    startTransition(async () => {
+      try {
+        const result = await regenerateGrant(grantId);
+        setGenerated(result);
+        router.refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Could not regenerate grant');
       }
     });
   }
@@ -147,6 +160,14 @@ export function GrantsPanel({
                       className="rounded-[var(--radius)] border border-border px-2 py-1 disabled:opacity-50"
                     >
                       Extend
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRegenerate(grant.id)}
+                      disabled={pending}
+                      className="rounded-[var(--radius)] border border-border px-2 py-1 disabled:opacity-50"
+                    >
+                      Regenerate
                     </button>
                     <button
                       type="button"

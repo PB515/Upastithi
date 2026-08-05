@@ -163,6 +163,22 @@ export async function revokeGrant(grantId: string): Promise<void> {
   revalidatePath(`/admin/events/${grant.event_id}`);
 }
 
+export async function regenerateGrant(grantId: string): Promise<GeneratedGrant> {
+  await requireAdmin();
+  const service = createServiceRoleClient();
+
+  const { data: grant, error } = await service
+    .from('event_access_tokens')
+    .select('event_id, label')
+    .eq('id', grantId)
+    .single();
+
+  if (error || !grant) throw new Error('Could not find grant to regenerate');
+
+  await revokeGrant(grantId);
+  return generateGrant(grant.event_id, grant.label ?? undefined);
+}
+
 export async function extendGrant(grantId: string): Promise<void> {
   const { userId } = await requireAdmin();
   const service = createServiceRoleClient();

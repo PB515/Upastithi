@@ -1,0 +1,16 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Placeholder app icon — uses the same placeholder magenta as globals.css.
+       Swap for the real logo once branding is ready; referenced from
+       app/manifest.ts as both 'any' and 'maskable' purposes. -->
+  <rect width="512" height="512" fill="#d6008c" />
+  <text
+    x="50%"
+    y="50%"
+    dominant-baseline="central"
+    text-anchor="middle"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="280"
+    font-weight="700"
+    fill="#ffffff"
+  >U</text>
+</svg>

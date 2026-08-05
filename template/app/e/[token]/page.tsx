@@ -2,6 +2,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service-role';
 import { verifyManagementAccess } from '@/lib/management-token';
 import { formatEventDate } from '@/lib/format-date';
 import { ManagementClient } from './management-client';
+import { InstallBanner } from './install-banner';
 
 export default async function ManagementPage({
   params,
@@ -38,6 +39,7 @@ export default async function ManagementPage({
         <p className="mb-6 text-sm text-muted">{formatEventDate(event.event_date)}</p>
       )}
 
+      <InstallBanner />
       <ManagementClient token={token} initialAttendees={attendees ?? []} />
     </main>
   );

@@ -24,6 +24,7 @@ export {
   ExternalLink,
   Loader2,
   AlertCircle,
+  Download,
 } from 'lucide-react';
 
 export type { LucideIcon } from 'lucide-react';

@@ -8,12 +8,12 @@
  * This is the per-site 20%: replace every value below when you clone.
  */
 export const site = {
-  name: 'Acme Co',
+  name: 'Upasthiti',
   legalName: 'Acme Private Limited',
   tagline: 'Replace this tagline per site.',
-  description: 'One-sentence description used as the default <meta> description.',
+  description: 'Event attendance tracking for Ramdootrestores.',
 
-  url: 'https://example.com', // production URL — canonical/sitemap/OG depend on it
+  url: 'https://example.com', // production URL, canonical/sitemap/OG depend on it
 
   contact: {
     email: 'hello@example.com',
