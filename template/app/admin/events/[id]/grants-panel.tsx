@@ -116,12 +116,13 @@ export function GrantsPanel({
       <div className="flex items-end gap-2">
         <div className="flex-1 space-y-1">
           <label htmlFor="grant-label" className="block text-sm text-muted">
-            Label (optional), e.g. &quot;Gate volunteer&quot;
+            Label who&apos;s using this, shown to them and to you below
           </label>
           <input
             id="grant-label"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
+            placeholder="e.g. Gate volunteer, Registration desk"
             className="w-full rounded-[var(--radius)] border border-border px-3 py-2"
           />
         </div>

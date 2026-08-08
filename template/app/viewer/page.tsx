@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { EventsList, type EventWithCount } from '@/components/events-list';
+import { InstallBanner } from '@/components/install-banner';
 import { signOut } from '../login/actions';
 
 export default async function ViewerPage() {
@@ -47,6 +48,8 @@ export default async function ViewerPage() {
           </form>
         </div>
       </div>
+
+      <InstallBanner />
 
       {error ? (
         <p className="text-sm text-red-600" role="alert">

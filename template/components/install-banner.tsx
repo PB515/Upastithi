@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { isStandalone, isIOS } from '@/lib/pwa/install-prompt';
-import { Download, X } from '@/lib/icons';
+import { Download, Share2, X } from '@/lib/icons';
 
 const DISMISSED_KEY = 'upasthiti:install-banner-dismissed';
 
@@ -56,9 +56,16 @@ export function InstallBanner() {
   return (
     <div className="mb-4 flex items-start justify-between gap-3 rounded-[var(--radius)] border border-border p-3 text-sm">
       {ios ? (
-        <p className="text-muted">
-          Add this page to your home screen: tap Share, then &quot;Add to Home Screen&quot;.
-        </p>
+        <div className="text-muted">
+          <p className="mb-1 font-medium text-foreground">Add to your home screen</p>
+          <ol className="list-decimal space-y-0.5 pl-4">
+            <li className="flex items-center gap-1">
+              Tap <Share2 className="inline size-3.5" aria-hidden /> Share in Safari&apos;s toolbar
+            </li>
+            <li>Scroll down and tap &quot;Add to Home Screen&quot;</li>
+            <li>Tap &quot;Add&quot;</li>
+          </ol>
+        </div>
       ) : (
         <button type="button" onClick={install} className="flex items-center gap-2">
           <Download className="size-4" aria-hidden />
