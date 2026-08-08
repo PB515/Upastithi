@@ -33,3 +33,6 @@ Thumbs.db
 # Claude Code local settings + transient files (machine-specific)
 .claude/settings.local.json
 .claude/*.lock
+
+# Generated deploy artifact — derived from template/db/migrations/, not source
+upasthiti-production-migration.sql
