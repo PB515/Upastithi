@@ -7,7 +7,7 @@ An attendance app for an NGO that was tracking events in Excel and a notebook, a
 - **Viewer:** a read-only login for other staff.
 - **Weak signal:** if the connection drops, check-ins wait on the phone and sync when it returns, with a clear status and retry.
 
-Live at https://upastithi-omega.vercel.app
+Built and tested for the NGO in 2026. It's not running now, so there's no live link.
 
 **Built with** Next.js, Supabase and TypeScript, as a mobile-first web app (PWA).
 
